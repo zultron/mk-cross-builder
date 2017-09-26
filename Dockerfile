@@ -1,4 +1,4 @@
-FROM zultron/docker-cross-builder:jessie
+FROM zultron/docker-cross-builder:stretch
 MAINTAINER John Morris <john@zultron.com>
 
 ###################################################################
