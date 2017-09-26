@@ -7,7 +7,7 @@ MAINTAINER John Morris <john@zultron.com>
 env DEBIAN_ARCH=armhf
 env SYS_ROOT=/sysroot/armhf
 env HOST_MULTIARCH=arm-linux-gnueabihf
-env DISTRO=jessie
+env DISTRO=stretch
 env EXTRA_FLAGS=
 
 ###################################################################
