@@ -1,16 +1,28 @@
-FROM @BASE_IMAGE@
+ARG BASE_IMAGE
+
+FROM ${BASE_IMAGE}
 MAINTAINER John Morris <john@zultron.com>
 
 ###################################################################
 # Build configuration settings
 
-@ENV_DEBIAN_ARCH@
-@ENV_HOST_MULTIARCH@
-@ENV_DISTRO_CODENAME@
-@ENV_DISTRO_VER@
-@ENV_SYS_ROOT@
-@ENV_EXTRA_FLAGS@
-@ENV_LDEMULATION@
+# - Passed in from hooks/build script based on Docker tag
+ARG DEBIAN_ARCH
+ARG HOST_MULTIARCH
+ARG DISTRO_CODENAME
+ARG DISTRO_VER
+ARG SYS_ROOT
+ARG EXTRA_FLAGS
+ARG LDEMULATION
+
+# - Set in container environment
+ENV DEBIAN_ARCH=${DEBIAN_ARCH}
+ENV HOST_MULTIARCH=${HOST_MULTIARCH}
+ENV DISTRO_CODENAME=${DISTRO_CODENAME}
+ENV DISTRO_VER=${DISTRO_VER}
+ENV SYS_ROOT=${SYS_ROOT}
+ENV EXTRA_FLAGS=${EXTRA_FLAGS}
+ENV LDEMULATION=${LDEMULATION}
 
 ###################################################################
 # Generic apt configuration
