@@ -146,6 +146,8 @@ RUN test $DISTRO_VER -gt 8 \
         tar xCf /opt ${WORKD}/${TXZ} && \
         ln -snf ${DIR} /opt/gcc-linaro-hf && \
         rm -rf ${WORKD}; \
+        ln -s  ../../bin/ccache /usr/lib/ccache/arm-linux-gnueabihf-gcc && \
+        ln -s  ../../bin/ccache /usr/lib/ccache/arm-linux-gnueabihf-g++ && \
     }
 
 ###########################################
