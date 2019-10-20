@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/zultron/mk-cross-builder.svg?branch=master)](https://travis-ci.org/zultron/mk-cross-builder)
+
 # Machinekit Cross-Builder
 
 This builds Debian Docker images with tools and dependencies for
