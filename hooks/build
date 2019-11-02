@@ -1,8 +1,11 @@
 #!/bin/bash -e
 #                                                -*-shell-script-*-
 #
-# Build Docker container images based on settings derived from
-# $IMAGE_NAME, etc.
+# This Docker Hub build hook runs `build.sh`.
+#
+# Using this build hook is less clumsy than other ways of building
+# multiple tags for a single branch update in Docker Hub automated
+# builds.
 #
 # https://docs.docker.com/docker-hub/builds/advanced/
 
