@@ -1,0 +1,200 @@
+#!/bin/bash -e
+#                                                         -*-shell-script-*-
+# Placed into the public domain by John Morris, 2014
+#
+# Configure source package dependencies
+
+# Distro info
+#
+# This should run on non-Debian distros; lsb_release is only used for
+# TCL/TK version detection, which can be passed in through the '-t
+# VERSION' switch
+if test -x /usr/bin/lsb_release; then
+    DISTRO_ID=$(lsb_release -is)  # Debian or Ubuntu
+    DISTRO_RELEASE=$(lsb_release -rs)   # 8.1, 14.04, etc.
+    DISTRO_CODENAME=$(lsb_release -cs) # wheezy | jessie | stretch | buster | sid
+fi
+
+# Work out of the debian/ directory
+cd "$(dirname $0)"
+
+# Put command into a file so that later automatic invocations can
+# re-run
+echo $0 $* > configure.cmdline
+
+rules_enable_threads() {
+    HAVE_FLAVOR=true
+
+    if test -n "MK_CROSS_BUILDER"; then
+        # To run mk-build-deps, don't need debian/rules or extra
+        # debian/control stuff
+        return;
+    fi
+
+    # enable thread flavors in debian/rules; e.g.
+    #    THREADS_POSIX = --with-posix
+    # ...unnecessary for control-only
+    FLAVOR=$1
+    FLAVOR_VAR=THREADS_$(echo $FLAVOR | tr 'a-z-' 'A-Z_')
+    sed -i rules \
+	-e "s/^${FLAVOR_VAR}[^_].*/${FLAVOR_VAR} = --with-${FLAVOR}/"
+    echo "debian/rules:  enabled ${FLAVOR} threads" >&2
+
+    # Add binary package to debian/control
+    ## Jessie uses python-imaging, python-imaging-tk, python-gst-0.10
+    ## Stretch and above use python-pil, python-pil.imagetk, python-gst-1.0
+    ## Buster does not have python-vte
+    if [ "$DISTRO_CODENAME" == "jessie" ]; then
+	cat control.${FLAVOR}.in >> control
+    else
+	if [ "$DISTRO_CODENAME" == "buster" ]; then
+    	    cat control.${FLAVOR}-buster.in >> control
+	else
+	    cat control.${FLAVOR}-stretch.in >> control
+	fi
+    fi
+    echo "debian/control:  added ${FLAVOR} threads package" >&2
+}
+
+do_posix() {
+    rules_enable_threads posix
+}
+
+do_rt-preempt() {
+    rules_enable_threads rt-preempt
+}
+
+do_xenomai() {
+    ## Jessie uses python-imaging, python-imaging-tk, python-gst-0.10
+    # Be sure the -dev files only appear once
+    BUILD_DEPS+=", libxenomai-dev"
+    echo "debian/control:  added Xenomai (userland) threads package" \
+	"with Build-Depends:" >&2
+    echo "    libxenomai-dev" >&2
+
+    rules_enable_threads xenomai
+}
+
+do_tcl_tk_version() {
+    TCL_TK_VER="$1"
+    if test -z "$TCL_TK_VER"; then
+        # No -t option specified; to ensure a reproducible package,
+        # use the latest version from the distro
+    TCL_TK_VER=8.6
+    case "$DISTRO_ID" in
+        Debian)  test "${DISTRO_RELEASE/.*/}" -lt 8 && TCL_TK_VER=8.5 ;;
+        Raspbian)test "${DISTRO_RELEASE/.*/}" -lt 8 && TCL_TK_VER=8.5 ;;
+        Ubuntu)  test "${DISTRO_RELEASE/.*/}" -lt 14 && TCL_TK_VER=8.5 ;;
+        neon)  test "${DISTRO_RELEASE/.*/}" -lt 14 && TCL_TK_VER=8.5 ;;
+        *)  usage "Unknown distro '${DISTRO_ID}'" ;;
+    esac
+    fi
+    TCL_TK_BUILD_DEPS="tcl${TCL_TK_VER}-dev, tk${TCL_TK_VER}-dev"
+    TCL_TK_DEPS="tcl${TCL_TK_VER}, tk${TCL_TK_VER}"
+    echo "debian/control:  Set tcl/tk build deps to version $TCL_TK_VER" >&2
+}
+
+
+## Set version for packages by altering changelog
+## Write new version info then prepend existing one, for use in changes file
+## Allows command line builds and builds outside of Travis environment to set meaningful version numbers
+
+do_changelog() {
+    DISTRO_UC="$(echo $DISTRO_CODENAME | sed 's/^[[:space:]]*//g' | sed -e 's/\b\(.\)/\u\1/g')"
+    DISTRO_LC="$(echo $DISTRO_CODENAME | sed 's/^[[:space:]]*//g')"
+    MKVERSION="$(git show HEAD:VERSION | cut -d ' ' -f 1).$(git rev-list --count master)-1.git$(git rev-parse --short HEAD)~${DISTRO_LC}"
+    COMMITTER="$(git show -s --pretty=%an $(git rev-parse --short HEAD))"
+    EMAIL="$(git show -s --format='%ae' $(git rev-parse --short HEAD))"
+
+    rm -f changelog
+    cat > changelog <<EOF
+machinekit-cnc (${MKVERSION}) ${DISTRO_UC}; urgency=low
+
+  * Cross-Builder rebuild for Debian ${DISTRO_UC}, commit $(git rev-parse --short HEAD)
+
+ -- ${COMMITTER} <${EMAIL}>  $(date -R)
+
+EOF
+
+cat changelog # debug output
+cat changelog.in >> changelog
+echo "New package version number added to changelog"
+}
+
+## Create source orig tarball in format required for creation of debian tarball and .dsc file
+## Allows non binary package builds from command line or outside Travis environment
+
+do_source_tarball() {
+#version based on major version plus commit number only, without suffixed -1 or commit hash
+MK_VERSION="$(git show HEAD:VERSION | cut -d ' ' -f 1).$(git rev-list --count master)"
+
+OWD=$PWD
+cd ../
+git archive HEAD | bzip2 -z > ../machinekit-cnc_${MK_VERSION}.orig.tar.bz2
+echo "Source tarball created"
+cd $OWD
+}
+
+usage() {
+    {
+	test -z "$1" || echo "$1"
+	echo "Usage:  $0 [ arg ... ]"
+	echo "   arg:		function:"
+	echo "   -p		build POSIX threads"
+	echo "   -r		build RT_PREEMPT threads"
+	echo "   -x		build Xenomai threads"
+	echo "   -t <tclver>	set tcl/tk version"
+	echo "   -c		rewrite changelog to set package version from git commit"
+	echo "	 -s		create source tarball for non binary package builds"
+    } >&2
+    exit 1
+}
+test "$1" != --help || usage
+
+#############################################
+# Main program
+#
+# These need to be in a certain order:
+# - Base template copy first
+# - do_<flavor> functions next
+# - replace BUILD_DEPS last
+#   (when lists are fully populated)
+
+# set defaults
+BUILD_DEPS=  # List of Build-Depends
+HAVE_FLAVOR=false
+
+# Determine tcl/tk version
+do_tcl_tk_version "$TCL_TK_VER"
+
+# copy base templates into place
+cp control.in control
+echo "debian/control:  copied base template" >&2
+if test -z "${MK_CROSS_BUILDER}"; then  # Extraneous in mk-ross-builder
+    cp rules.in rules; chmod +x rules
+    echo "debian/rules:  copied base template" >&2
+fi
+#cp machinekit-cnc.install.in machinekit-cnc.install
+#echo "debian/machinekit-cnc.install.in:  copied base template" >&2
+
+# read command line options
+while getopts csprxd:t:?h ARG; do
+    case $ARG in
+	p) do_posix ;;
+	r) do_rt-preempt ;;
+	x) do_xenomai ;;
+	c) do_changelog ;;  # set new changelog with package versions from git
+	s) do_source_tarball ;; # create tarball for non binary builds
+	t) TCL_TK_VER="$OPTARG" ;;
+	?|h) usage ;;
+	*) usage "Unknown arg: '-$ARG'" ;;
+    esac
+done
+
+# Set control Build-Depends:
+sed -i control \
+    -e "s/@BUILD_DEPS@/${BUILD_DEPS}/"
+echo "debian/control:  add final Build-Depends: list" >&2
+
+# Warn if no flavor configured (outside of mk-cross-builder environment)
+$HAVE_FLAVOR || usage "WARNING:  No thread flavors configured"

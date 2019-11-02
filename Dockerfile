@@ -254,10 +254,11 @@ RUN if test $DISTRO_CODENAME = jessie -a -z "$SYS_ROOT"; then \
 ##############################
 # Machinekit:  Configure multistrap
 
-# Set up debian/control for `mk-build-deps`
+# Set up debian/control files for `mk-build-deps`
 #     FIXME download parts from upstream
-ADD debian/ /tmp/debian/
-RUN MK_CROSS_BUILDER=1 /tmp/debian/configure
+ADD pkgs/ /tmp/pkgs/
+RUN MK_CROSS_BUILDER=1 /tmp/pkgs/mk-hal/debian/configure
+RUN MK_CROSS_BUILDER=1 /tmp/pkgs/mk-cnc/debian/configure -prx
 
 # Directory for `mk-build-deps` apt repository
 RUN mkdir /tmp/debs && \
@@ -265,10 +266,13 @@ RUN mkdir /tmp/debs && \
 
 # Create deps package and local package repo
 RUN if test $DISTRO_VER -eq 8; then \
-        mk-build-deps --arch $DEBIAN_ARCH /tmp/debian/control; \
+        mk-build-deps --arch $DEBIAN_ARCH \
+            /tmp/pkgs/mk-hal/debian/control \
+            /tmp/pkgs/mk-cnc/debian/control; \
     else \
         mk-build-deps --build-arch $DEBIAN_ARCH --host-arch $DEBIAN_ARCH \
-	    /tmp/debian/control; \
+	    /tmp/pkgs/mk-hal/debian/control \
+	    /tmp/pkgs/mk-cnc/debian/control; \
     fi \
     && mv *.deb /tmp/debs \
     && ( cd /tmp/debs && dpkg-scanpackages -m . > /tmp/debs/Packages )
@@ -289,6 +293,7 @@ RUN if test -z "$SYS_ROOT"; then \
         && if test $DISTRO_VER -le 9; then \
 	    apt-get install -y  -o Apt::Get::AllowUnauthenticated=true \
 		machinekit-hal-build-deps \
+		machinekit-cnc-build-deps \
 	    && sed -i /etc/apt/sources.list.d/local.list -e '/^deb/ s/^/#/' \
 	    && apt-get update ; \
         else \

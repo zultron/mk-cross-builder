@@ -19,6 +19,7 @@ Build-Depends: debhelper (>= 6),
     python-protobuf (>= 2.4.1), libprotoc-dev (>= 2.4.1),
     python-simplejson, libboost-thread-dev, libcgroup-dev,
     yapps2-runtime | python-yapps, yapps2,
+    libtk-img, tcl8.6-dev, tk8.6-dev,
     python-pyftpdlib @BUILD_DEPS@
 Standards-Version: 2.1.0
 
