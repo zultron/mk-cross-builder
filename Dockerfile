@@ -261,8 +261,12 @@ RUN if test $DISTRO_CODENAME = jessie -a -z "$SYS_ROOT"; then \
 # Set up debian/control files for `mk-build-deps`
 #     FIXME download parts from upstream
 ADD pkgs/ /tmp/pkgs/
-RUN MK_CROSS_BUILDER=1 /tmp/pkgs/mk-hal/debian/configure
-RUN MK_CROSS_BUILDER=1 /tmp/pkgs/mk-cnc/debian/configure -prx
+RUN MK_CROSS_BUILDER=1 /tmp/pkgs/mk-hal/debian/configure \
+    && if test $DISTRO_VER -eq 8; then \
+        MK_CROSS_BUILDER=1 /tmp/pkgs/mk-cnc/debian/configure -prx; \
+    else \
+        MK_CROSS_BUILDER=1 /tmp/pkgs/mk-cnc/debian/configure -pr; \
+    fi
 
 # Directory for `mk-build-deps` apt repository
 RUN mkdir /tmp/debs && \
